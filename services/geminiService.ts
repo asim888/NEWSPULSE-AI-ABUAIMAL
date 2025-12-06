@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { EnhancedArticleContent } from "../types";
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
@@ -193,10 +194,12 @@ export const generateNewsAudio = async (text: string): Promise<{ audioData: stri
   const aiClient = getAI();
   if (!aiClient) throw new Error("API Key not configured");
 
-  // CRITICAL FIX: Aggressive text sanitization.
+  // CRITICAL FIX: Aggressive text sanitization but keep non-English chars.
+  // We allow periods, commas, question marks, and any alphanumeric character (including Unicode)
+  // We strip URLs and Markdown.
   const cleanText = text
     .replace(/https?:\/\/\S+/g, '') // Remove URLs completely
-    .replace(/[*#_`~>\[\]\(\)]/g, '') // Remove all Markdown and bracket characters
+    .replace(/[*#_`~>\[\]\(\)]/g, '') // Remove Markdown syntax
     .replace(/\s+/g, ' ') // Collapse whitespace
     .trim();
 
@@ -204,7 +207,8 @@ export const generateNewsAudio = async (text: string): Promise<{ audioData: stri
       throw new Error("Audio generation failed: Text was empty after sanitization.");
   }
 
-  const speechText = cleanText.slice(0, 500);
+  // Increased limit to 2000 to allow "Full Summary" and "Translated Article" reading
+  const speechText = cleanText.slice(0, 2000);
 
   try {
     const response = await aiClient.models.generateContent({
