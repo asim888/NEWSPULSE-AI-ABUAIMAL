@@ -1,4 +1,5 @@
-export enum Category {
+// Using const enum for better performance and tree-shaking
+export const enum Category {
   AZAD_STUDIO = 'Azad Studio',
   HYDERABAD = 'Hyderabad',
   TELANGANA = 'Telangana',
@@ -54,14 +55,36 @@ export interface UserState {
 export type SubscriptionPlan = 'free' | 'trial' | 'premium';
 
 export interface SubscriptionStatus {
-    plan: SubscriptionPlan;
-    expiry: number | null;
-    autoRenew: boolean;
+  plan: SubscriptionPlan;
+  expiry: number | null;
+  autoRenew: boolean;
 }
 
 export interface ToastMessage {
-    id: number;
-    title: string;
-    message: string;
-    type: 'success' | 'info' | 'warning';
+  id: number;
+  title: string;
+  message: string;
+  type: 'success' | 'info' | 'warning' | 'error';
 }
+
+// Add environment variable types for Vite
+export interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
+  readonly VITE_GOOGLE_AI_KEY: string;
+  readonly VITE_APP_TITLE: string;
+  readonly MODE: 'development' | 'production';
+}
+
+export interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
+// Helper function to safely access environment variables
+export const getEnv = (key: keyof ImportMetaEnv): string => {
+  if (import.meta.env[key] === undefined) {
+    console.warn(`Environment variable ${key} is not defined`);
+    return '';
+  }
+  return import.meta.env[key] as string;
+};
