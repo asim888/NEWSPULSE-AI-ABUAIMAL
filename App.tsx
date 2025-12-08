@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Article, TeamMember, UserState, EnhancedArticleContent, SubscriptionStatus, ToastMessage } from './types';
 import { APP_NAME, TAGLINE, ATTRIBUTION, FALLBACK_NEWS, LOGO_URL, TEAM, ASSET_LOGO_URL, SUBSCRIPTION_QR_URL, FALLBACK_ARTICLE_IMAGE } from './constants';
@@ -34,6 +35,12 @@ const IconMic = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gold-500">
     <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
     <path d="M6 10.5a.75.75 0 01.75.75v1.5a5.25 5.25 0 1010.5 0v-1.5a.75.75 0 011.5 0v1.5a6.751 6.751 0 01-6 6.709v2.291h3a.75.75 0 010 1.5h-7.5a.75.75 0 010-1.5h3v-2.291a6.751 6.751 0 01-6-6.709v-1.5A.75.75 0 016 10.5z" />
+  </svg>
+);
+
+const IconPlus = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
   </svg>
 );
 
@@ -228,6 +235,91 @@ const WelcomeScreen = ({ onEnter }: { onEnter: () => void }) => {
       </div>
     </div>
   );
+};
+
+const AddGalleryModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) => {
+    const [title, setTitle] = useState('');
+    const [imageUrl, setImageUrl] = useState('');
+    const [description, setDescription] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        if (!title || !imageUrl) {
+            setError('Title and Image URL are required.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            await RssService.addGalleryPost({ title, description, media_url: imageUrl });
+            onSuccess();
+            onClose();
+        } catch (err: any) {
+            console.error(err);
+            setError(err.message || 'Failed to add post.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+            <div className="relative bg-noir-900 border border-gold-600/50 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white">
+                    <IconClose />
+                </button>
+                <h2 className="text-xl font-bold text-white mb-6 font-serif">Add to Gallery</h2>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-xs text-gold-500 uppercase font-bold mb-1">Title</label>
+                        <input 
+                            type="text" 
+                            value={title} 
+                            onChange={e => setTitle(e.target.value)}
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-white focus:border-gold-500 outline-none"
+                            placeholder="Event Name or Title"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gold-500 uppercase font-bold mb-1">Image URL</label>
+                        <input 
+                            type="url" 
+                            value={imageUrl} 
+                            onChange={e => setImageUrl(e.target.value)}
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-white focus:border-gold-500 outline-none"
+                            placeholder="https://example.com/image.jpg"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gold-500 uppercase font-bold mb-1">Description</label>
+                        <textarea 
+                            value={description} 
+                            onChange={e => setDescription(e.target.value)}
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-white focus:border-gold-500 outline-none h-24"
+                            placeholder="Add a caption..."
+                        />
+                    </div>
+
+                    {error && <p className="text-red-500 text-xs">{error}</p>}
+
+                    <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={onClose} className="flex-1 py-2 bg-zinc-800 text-gray-300 rounded hover:bg-zinc-700">
+                            Cancel
+                        </button>
+                        <button type="submit" disabled={loading} className="flex-1 py-2 bg-gold-600 text-black font-bold rounded hover:bg-gold-500 disabled:opacity-50">
+                            {loading ? 'Posting...' : 'Post'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
 };
 
 const PremiumModal = ({ onClose, onTrialStart, onPaymentComplete }: { onClose: () => void; onTrialStart: () => void; onPaymentComplete: () => void }) => {
@@ -589,6 +681,7 @@ export default function App() {
       autoRenew: false
   });
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showAddGalleryModal, setShowAddGalleryModal] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
 
   const [newsItems, setNewsItems] = useState<Article[]>([]);
@@ -662,6 +755,20 @@ export default function App() {
       setShowPremiumModal(true);
     } else {
       setCurrentCategory(cat);
+    }
+  };
+
+  const refreshGallery = async () => {
+    if (currentCategory === Category.GALLERY) {
+        setLoadingNews(true);
+        try {
+            const items = await RssService.fetchNewsForCategory(Category.GALLERY);
+            setNewsItems(items);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoadingNews(false);
+        }
     }
   };
 
@@ -945,11 +1052,20 @@ export default function App() {
           </div>
         ) : isGalleryPage ? (
             <div className="animate-fade-in">
-                <div className="text-center mb-8">
-                     <h2 className="text-3xl font-black text-white tracking-tight">
-                        <span className="text-gold-500">Azad Gallery</span>
-                     </h2>
-                     <p className="text-gray-500 text-sm mt-2">Moments from the field, studio, and community.</p>
+                <div className="flex items-center justify-between mb-8">
+                     <div className="text-left">
+                        <h2 className="text-3xl font-black text-white tracking-tight">
+                            <span className="text-gold-500">Azad Gallery</span>
+                        </h2>
+                        <p className="text-gray-500 text-sm mt-2">Moments from the field, studio, and community.</p>
+                     </div>
+                     <button 
+                        onClick={() => setShowAddGalleryModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-gold-500 border border-zinc-700 rounded-lg hover:border-gold-500 transition-colors"
+                     >
+                        <IconPlus />
+                        <span className="text-xs font-bold uppercase">Add Post</span>
+                     </button>
                 </div>
                 <div className="columns-2 md:columns-3 gap-4 space-y-4">
                     {newsItems.map(item => (
@@ -1132,6 +1248,16 @@ export default function App() {
           <Lightbox 
             article={lightboxArticle}
             onClose={() => setLightboxArticle(null)}
+          />
+      )}
+
+      {showAddGalleryModal && (
+          <AddGalleryModal 
+            onClose={() => setShowAddGalleryModal(false)}
+            onSuccess={() => {
+                addToast("Post Added", "Gallery post created successfully.", "success");
+                refreshGallery();
+            }}
           />
       )}
 

@@ -46,50 +46,80 @@ export const fetchGalleryPosts = async (): Promise<Article[]> => {
     return [];
 };
 
+export const addGalleryPost = async (post: { title: string, description: string, media_url: string }) => {
+    if (!isSupabaseConfigured()) throw new Error("Database not connected");
+    
+    const { data, error } = await supabase!
+        .from('gallery_posts')
+        .insert([
+            {
+                title: post.title,
+                description: post.description,
+                media_url: post.media_url
+            }
+        ])
+        .select();
+    
+    if (error) throw error;
+    return data;
+};
+
 export const fetchNewsForCategory = async (category: Category): Promise<Article[]> => {
     
     // --- SPECIAL CATEGORY: AZAD STUDIO (Strictly Supabase) ---
     if (category === Category.AZAD_STUDIO) {
-        if (isSupabaseConfigured()) {
-            try {
-                // Fetch directly from telegram_posts table
-                const { data, error } = await supabase!
-                    .from('telegram_posts')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(20);
-                
-                if (data && !error) {
-                    return data.map((post: any) => {
-                        // Create a title from the message content if available
-                        const rawMsg = post.message || "";
-                        const title = rawMsg.length > 60 
-                            ? rawMsg.substring(0, 60).split('\n')[0] + "..." 
-                            : (rawMsg || "Azad Studio Live Update");
-
-                        return {
-                            id: `tg_${post.id}`,
-                            title: title,
-                            source: 'Azad Studio Live',
-                            timestamp: post.created_at 
-                                ? new Date(post.created_at).toLocaleDateString() + ' ' + new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                                : 'Just Now',
-                            description: rawMsg,
-                            category: Category.AZAD_STUDIO,
-                            url: '#', // No external link
-                            imageUrl: post.media_url,
-                            descriptionRomanUrdu: rawMsg // Usually Roman Urdu in Telegram
-                        };
-                    });
-                } else if (error) {
-                    console.error("Supabase error fetching telegram_posts:", error);
-                }
-            } catch (e) {
-                console.warn("Failed to fetch Telegram posts from Supabase", e);
-            }
+        if (!isSupabaseConfigured()) {
+            console.warn("[Azad Studio] Supabase URL or Key missing. Cannot fetch posts.");
+            return [];
         }
-        // If not configured or failed, return empty array (UI will handle fallback/loading)
-        return []; 
+
+        try {
+            console.log("[Azad Studio] Fetching posts from Supabase telegram_posts table...");
+            // Fetch directly from telegram_posts table using the configured client
+            const { data, error } = await supabase!
+                .from('telegram_posts')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50); // Increased limit to show more history
+            
+            if (error) {
+                console.error("[Azad Studio] Supabase Query Error:", error.message);
+                return [];
+            }
+
+            if (data && data.length > 0) {
+                console.log(`[Azad Studio] Successfully fetched ${data.length} posts.`);
+                return data.map((post: any) => {
+                    // Create a title from the message content if available
+                    const rawMsg = post.message || "";
+                    // Use first line or first 60 chars as title
+                    const titleLine = rawMsg.split('\n')[0];
+                    const title = titleLine.length > 60 
+                        ? titleLine.substring(0, 60) + "..." 
+                        : (titleLine || "Azad Studio Update");
+
+                    return {
+                        id: `tg_${post.id}`,
+                        title: title,
+                        source: 'Azad Studio Live',
+                        timestamp: post.created_at 
+                            ? new Date(post.created_at).toLocaleDateString() + ' ' + new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                            : 'Just Now',
+                        description: rawMsg, // Full message as description
+                        category: Category.AZAD_STUDIO,
+                        url: '#', // No external link needed
+                        imageUrl: post.media_url,
+                        descriptionRomanUrdu: rawMsg // Usually Roman Urdu in Telegram
+                    };
+                });
+            } else {
+                console.log("[Azad Studio] No posts found in database.");
+                return [];
+            }
+        } catch (e) {
+            console.error("[Azad Studio] Unexpected fetch error:", e);
+            return [];
+        }
     }
 
     if (category === Category.GALLERY) {
