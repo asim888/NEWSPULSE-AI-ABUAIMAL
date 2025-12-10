@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Article, TeamMember, UserState, EnhancedArticleContent, SubscriptionStatus, ToastMessage } from './types';
 import { APP_NAME, TAGLINE, ATTRIBUTION, FALLBACK_NEWS, LOGO_URL, TEAM, ASSET_LOGO_URL, SUBSCRIPTION_QR_URL, FALLBACK_ARTICLE_IMAGE } from './constants';
 import * as GeminiService from './services/geminiService';
 import * as RssService from './services/rssService';
+import { isSupabaseConfigured } from './services/supabaseClient';
 import { getEnv } from './utils/env';
 
 // Icons
@@ -35,6 +35,32 @@ const IconMic = () => (
 const IconPlus = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+);
+
+const IconYoutube = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+  </svg>
+);
+
+const IconTelegram = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.638z" />
+  </svg>
+);
+
+const IconDatabase = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-red-500 mb-2">
+    <path d="M21 6.375c0 2.692-4.03 4.875-9 4.875S3 9.067 3 6.375 7.03 1.5 12 1.5s9 2.183 9 4.875Z" />
+    <path d="M12 12.75c2.685 0 5.19-.504 7.078-1.354.435-.198.808-.426 1.112-.676.257-.213.468-.45.617-.704.22-.375.336-.787.294-1.206a2.25 2.25 0 0 0-.256-.913C19.82 8.79 16.32 9.75 12 9.75c-4.32 0-7.82-.96-8.845-1.853a2.25 2.25 0 0 0-.256.913c-.042.419.074.831.294 1.206.149.254.36.491.617.704.304.25.677.478 1.112.676C6.81 12.246 9.315 12.75 12 12.75Z" />
+    <path d="M12 18.75c2.685 0 5.19-.504 7.078-1.354.435-.198.808-.426 1.112-.676.257-.213.468-.45.617-.704.22-.375.336-.787.294-1.206a2.25 2.25 0 0 0-.256-.913C19.82 14.79 16.32 15.75 12 15.75c-4.32 0-7.82-.96-8.845-1.853a2.25 2.25 0 0 0-.256.913c-.042.419.074.831.294 1.206.149.254.36.491.617.704.304.25.677.478 1.112.676C6.81 18.246 9.315 18.75 12 18.75Z" />
+  </svg>
+);
+
+const IconLink = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
   </svg>
 );
 
@@ -449,14 +475,23 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
 
   useEffect(() => {
     // Background fetch for enhanced content (full article + translations)
+    // Pass the FULL CONTENT if available, otherwise description
+    const textContext = article.content && article.content.length > article.description.length 
+        ? article.content 
+        : article.description;
+
     const fetchContent = async () => {
       setLoading(true);
       try {
-        const data = await GeminiService.enhanceArticle(article.id, article.title, article.description);
-        setEnhancedContent(data);
-        if(data) setLoading(false);
+        const data = await GeminiService.enhanceArticle(article.id, article.title, textContext);
+        setEnhancedContent(prev => {
+             // Only update if we have new data to avoid UI flickering for existing tabs
+             if (data.fullArticle === prev?.fullArticle && data.summaryUrdu === prev?.summaryUrdu) return prev;
+             return data;
+        });
       } catch (e) {
         console.error("Failed to enhance", e);
+      } finally {
         setLoading(false);
       }
     };
@@ -542,18 +577,24 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
     setAudioLoading(true);
     const textToRead = getContent();
 
-    if (!textToRead || textToRead.includes("generating...")) {
+    // Specific check: if we are on 'original' tab, we almost always have text (RSS content).
+    // If we are on translated tabs, we might still be generating.
+    const isGenerating = textToRead.includes("generating...");
+
+    if (!textToRead || isGenerating) {
       setAudioLoading(false);
       // Fallback: Read the description if full content isn't ready
-      if (article.description) {
+      if (article.description && activeTab === 'original') {
            playDeviceFallback(article.description);
            return;
       }
-      addToast("Please wait", "Content is generating...", "info");
+      addToast("Please wait", "Translation is generating...", "info");
       return;
     }
 
     try {
+      // For non-English languages, Gemini TTS might not be perfect. 
+      // We try it, but if it fails, we fall back to Device TTS which supports regional languages well.
       const { audioData } = await GeminiService.generateNewsAudio(textToRead);
 
       // Initialize Audio Context if needed
@@ -618,6 +659,12 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
            <div className="flex items-center gap-3 text-xs text-gray-500 mb-6">
              <span className="bg-zinc-800 px-2 py-1 rounded text-gold-500 border border-zinc-700">{article.source}</span>
              <span>{article.timestamp}</span>
+             {article.url && article.url !== '#' && (
+                 <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-gold-600 hover:text-gold-400 font-bold uppercase tracking-wider">
+                     <span>Read Original</span>
+                     <IconLink />
+                 </a>
+             )}
            </div>
 
            <div className="relative mb-6">
@@ -683,7 +730,7 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
             ) : (
               <>
                  {playing ? <IconStop /> : <IconMic />} 
-                 {playing ? "Stop Audio" : "Listen"}
+                 {playing ? "Listen" : "Listen"}
               </>
             )}
           </button>
@@ -809,10 +856,19 @@ export default function App() {
             if (fetchedArticles.length > 0) {
                 setNewsItems(fetchedArticles);
             } else {
-                setNewsItems(FALLBACK_NEWS.filter(n => n.category === currentCategory));
+                if (currentCategory === Category.AZAD_STUDIO) {
+                    // Do not fallback to mock data for Azad Studio, show empty state instead to confirm DB fetch
+                    setNewsItems([]);
+                } else {
+                    setNewsItems(FALLBACK_NEWS.filter(n => n.category === currentCategory));
+                }
             }
         } catch (e) {
-            setNewsItems(FALLBACK_NEWS.filter(n => n.category === currentCategory));
+            if (currentCategory === Category.AZAD_STUDIO) {
+                setNewsItems([]);
+            } else {
+                setNewsItems(FALLBACK_NEWS.filter(n => n.category === currentCategory));
+            }
         } finally {
             setLoadingNews(false);
         }
@@ -943,15 +999,8 @@ export default function App() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         
         {isAzadChannel ? (
-          <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-               <div className="flex items-center justify-center mb-6">
-                 <div className="flex items-center gap-2 bg-noir-900 border border-gold-600/30 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(212,175,55,0.1)]">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <h2 className="text-gold-500 text-sm font-bold uppercase tracking-widest">Azad Studio Live</h2>
-                 </div>
-               </div>
-               
-               <div className="pt-8 border-t border-zinc-800">
+          <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
+               <div className="">
                   <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-white">Latest Updates</h2>
                       <span className="text-xs text-gold-500 uppercase tracking-widest">From Database</span>
@@ -977,7 +1026,16 @@ export default function App() {
                                   onClick={() => setSelectedArticle(article)}
                                   className="bg-noir-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-gold-600 transition-all cursor-pointer group"
                               >
-                                  {article.imageUrl && (
+                                  {article.mediaType === 'video' ? (
+                                      <div className="h-56 overflow-hidden relative bg-black">
+                                          <video 
+                                              src={article.imageUrl} 
+                                              controls 
+                                              className="w-full h-full object-contain"
+                                              onClick={(e) => e.stopPropagation()} 
+                                          />
+                                      </div>
+                                  ) : article.imageUrl && (
                                       <div className="h-48 overflow-hidden relative">
                                           <img 
                                               src={article.imageUrl} 
@@ -988,18 +1046,30 @@ export default function App() {
                                           <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black to-transparent h-12"></div>
                                       </div>
                                   )}
+                                  
                                   <div className="p-4">
                                       <div className="flex items-center gap-2 mb-2 text-[10px] text-gray-500">
                                           <span className="uppercase tracking-widest">{article.timestamp}</span>
+                                          {article.mediaType === 'video' && (
+                                              <span className="bg-red-900/50 text-red-400 px-2 py-0.5 rounded border border-red-800/50">VIDEO</span>
+                                          )}
                                       </div>
                                       <h3 className="text-white font-bold mb-2 line-clamp-2 group-hover:text-gold-500 transition-colors">{article.title}</h3>
-                                      <p className="text-gray-400 text-sm line-clamp-3">{article.description}</p>
+                                      <p className="text-gray-400 text-sm line-clamp-3 whitespace-pre-line">{article.description}</p>
                                   </div>
                               </div>
                           ))}
                       </div>
                   ) : (
-                      <p className="text-gray-500 text-center py-10">No recent updates found in database.</p>
+                      <div className="flex flex-col items-center justify-center py-12 text-center bg-noir-900 border border-zinc-800 rounded-xl">
+                          <div className="bg-zinc-800/50 p-4 rounded-full mb-3 text-gold-500">
+                              <IconTelegram />
+                          </div>
+                          <p className="text-gray-400 font-bold text-sm">No recent updates found</p>
+                          <p className="text-gray-600 text-xs mt-1 max-w-xs mx-auto">
+                              Connecting to Live Feed... If this persists, the server might be waking up (15-30s).
+                          </p>
+                      </div>
                   )}
                </div>
           </div>
