@@ -1,12 +1,29 @@
-import React, { ReactNode, Component, ErrorInfo } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Polyfill Process for Browser/Vite Environment to prevent crashes
-// @ts-ignore
-if (typeof window !== 'undefined' && !window.process) {
-  // @ts-ignore
-  window.process = { env: {} };
+// Polyfill Process for Browser/Vite Environment to prevent crashes and ensure SDK compatibility
+if (typeof window !== 'undefined') {
+    const win = window as any;
+    if (!win.process) win.process = { env: {} };
+    if (!win.process.env) win.process.env = {};
+    
+    // Copy Vite environment variables to process.env
+    try {
+        // @ts-ignore
+        if (import.meta && import.meta.env) {
+             // @ts-ignore
+            const env = import.meta.env;
+            win.process.env = {
+                ...win.process.env,
+                ...env,
+                // CRITICAL: MAP VITE_API_KEY TO API_KEY so GoogleGenAI SDK can find it
+                API_KEY: env.VITE_API_KEY || env.API_KEY || win.process.env.API_KEY
+            };
+        }
+    } catch (e) {
+        console.warn("Environment variable polyfill error:", e);
+    }
 }
 
 interface ErrorBoundaryProps {
@@ -19,7 +36,6 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicitly declare state property for TypeScript
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
