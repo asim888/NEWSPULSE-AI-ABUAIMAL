@@ -526,7 +526,7 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
   }, [article]);
 
   const getContent = () => {
-      // Fallback logic for display
+      // Logic for 'roman' tab (keeps it dedicated if selected)
       if (activeTab === 'roman') {
           const summary = enhancedContent?.summaryRomanUrdu || article.descriptionRomanUrdu || "";
           const full = enhancedContent?.fullArticleRomanUrdu || "";
@@ -534,9 +534,9 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
           if (full) {
              let content = "";
              if (summary && !full.startsWith(summary)) {
-                 content += `**Khulasa (Summary)**\n${summary}\n\n`;
+                 content += `KHULASA (SUMMARY)\n${summary}\n\n`;
              }
-             content += `**Tafseeli Khabar (Full Story)**\n${full}`;
+             content += `TAFSEELI KHABAR (FULL STORY)\n${full}`;
              return content;
           }
           return summary || "Generating Roman Urdu translation...";
@@ -687,6 +687,10 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
       return 'leading-relaxed';
   }
 
+  // Determine Roman Urdu content for display below main text
+  const romanContent = enhancedContent?.fullArticleRomanUrdu || enhancedContent?.summaryRomanUrdu || article.descriptionRomanUrdu;
+  const showRomanBelow = activeTab !== 'roman' && romanContent;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/90 backdrop-blur-md">
       <div className="bg-noir-900 border border-zinc-800 w-full max-w-3xl h-[95vh] md:h-auto md:max-h-[90vh] rounded-t-2xl md:rounded-2xl flex flex-col shadow-2xl overflow-hidden animate-slide-up">
@@ -751,6 +755,20 @@ const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose, addToast 
                      </div>
                  )}
                </div>
+               
+               {/* Always show Roman Urdu below content unless active tab is Roman Urdu */}
+               {showRomanBelow && (
+                   <div className="mt-8 pt-8 border-t border-zinc-800">
+                        <h4 className="text-gold-600/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-gold-600 rounded-full inline-block"></span>
+                            Roman Urdu Translation
+                        </h4>
+                        <p className="text-gray-400/80 leading-relaxed whitespace-pre-line text-sm md:text-base font-sans">
+                            {romanContent}
+                        </p>
+                   </div>
+               )}
+
                {loading && activeTab !== 'original' && !getContent().includes(enhancedContent?.fullArticle || '') && (
                    <p className="text-xs text-gold-500/70 mt-4 italic animate-pulse">
                        AI Journalist is expanding and translating full story in background...
@@ -1030,14 +1048,14 @@ export default function App() {
       <nav className="bg-noir-950 border-b border-zinc-800 sticky top-[88px] z-20">
         <div className="max-w-7xl mx-auto px-4 py-3 overflow-x-auto scrollbar-hide">
           <div className="flex gap-2">
-            {Object.values(Category).map((cat) => {
+            {(Object.values(Category) as string[]).map((cat) => {
                const isActive = currentCategory === cat;
                const isLocked = cat !== Category.AZAD_STUDIO && cat !== Category.FOUNDERS && !isPremiumActive;
                
                return (
                  <button
                    key={cat}
-                   onClick={() => handleCategoryClick(cat)}
+                   onClick={() => handleCategoryClick(cat as Category)}
                    className={`
                      flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap
                      ${isActive 
@@ -1164,7 +1182,6 @@ export default function App() {
                                                       <span className="bg-red-900/50 text-red-400 px-2 py-0.5 rounded border border-red-800/50">VIDEO</span>
                                                   )}
                                               </div>
-                                              <span className="text-[10px] text-zinc-500">Telegram</span>
                                           </div>
                                           
                                           <h3 className="text-white font-serif font-bold text-xl mb-3 leading-snug group-hover:text-gold-500 transition-colors line-clamp-2">
@@ -1393,10 +1410,8 @@ export default function App() {
                         <div className="p-5 flex-1 flex flex-col relative">
                             <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-3">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-1 h-3 bg-gold-500 rounded-full"></div>
-                                    <span className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">{article.source}</span>
+                                     <span className="text-[10px] text-gold-500 uppercase tracking-widest">{article.timestamp}</span>
                                 </div>
-                                <span className="text-[10px] text-gray-500">{article.timestamp}</span>
                             </div>
 
                             <h3 className="text-white font-serif font-bold text-xl leading-snug mb-3 group-hover:text-gold-400 transition-colors line-clamp-3">
