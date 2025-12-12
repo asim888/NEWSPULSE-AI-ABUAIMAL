@@ -1,4 +1,5 @@
 
+
 export enum Category {
   AZAD_STUDIO = 'Azad Studio',
   HYDERABAD = 'Hyderabad',
@@ -16,6 +17,8 @@ export interface Article {
   source: string;
   timestamp: string;
   imageUrl?: string;
+  videoUrl?: string;
+  mediaType?: 'image' | 'video';
   description: string;
   summaryShort?: string;
   descriptionRomanUrdu?: string;
